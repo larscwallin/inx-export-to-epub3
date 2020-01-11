@@ -1,0 +1,21 @@
+<inkscape-extension>
+  <_name>Export to EPUB3</_name>
+  <id>com.larscwallin.inx.exporttoepub</id>
+  <dependency type="executable" location="extensions">larscwallin.inx.exporttoepub.py</dependency>
+  <dependency type="executable" location="extensions">inkex.py</dependency>
+  <param name="root_folder" type="string" _gui-text="Project root folder path">~/</param>
+  <param name="resources_folder" type="string" _gui-text="Additional resources folder path, relative to the root folder"></param>
+  <param name="where" type="string" _gui-text="Output path">~/</param>
+  <param name="filename" type="string" _gui-text="File name">my-publication.svg</param>
+  <param name="bottom_layer_as_cover" type="boolean" _gui-text="Use bottom layer as cover image"></param>
+  <param name="wrap_svg_in_html" type="boolean" _gui-text="Save documents as HTML instead of SVG?"></param>
+  <effect>
+    <object-type>all</object-type>
+    <effects-menu>
+       <submenu _name="Export"/>
+    </effects-menu>
+  </effect>
+  <script>
+    <command reldir="extensions" interpreter="python">larscwallin.inx.exporttoepub.py</command>
+  </script>
+</inkscape-extension>
