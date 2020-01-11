@@ -28,7 +28,7 @@ class ExportToEpub(inkex.Effect):
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="100%" height="100%" viewBox="0 0 {{element.width}} {{element.height}}" xml:space="preserve" preserveAspectRatio="xMinYMin">
     <style id="font-declarations">
-        {{font-families}}
+        {{font-faces}}
     </style>
     {{defs}}
     {{scripts}}
@@ -45,7 +45,7 @@ class ExportToEpub(inkex.Effect):
     font_face_template = """
     @font-face {
       font-family: {{font.family}};
-      src: url({{font.url}});
+      src: url("{{font.url}}");
     }
     """
 
@@ -102,7 +102,7 @@ class ExportToEpub(inkex.Effect):
             scripts_string = ''
             text_elements = self.document.xpath('//svg:text', namespaces=inkex.NSS)
             font_declarations = {}
-            font_families_string = ''
+            font_faces_string = ''
 
             resource_folder_path = os.path.join(self.root_folder, self.resources_folder)
             self.add_resources(resource_folder_path)
@@ -206,19 +206,19 @@ class ExportToEpub(inkex.Effect):
                         font_family = str.replace(font, ' ', '+')
                         font_family = str.replace(font_family, "'", '')
                         resource_path = os.path.join(self.root_folder, self.resources_folder)
-                        font_file_name = self.find_file_name_fuzzy(font_family, resource_path)
+                        font_file_name = self.find_file_fuzzy(font_family, resource_path)
 
                         if font_file_name is not None:
-                            font_path = self.resources_folder + '/' + font_file_name
+                            font_path = self.get_relative_resource_path(font_file_name)
                             font_tpl_result = str.replace(self.font_face_template, '{{font.family}}', font_family)
                             font_tpl_result = str.replace(font_tpl_result, '{{font.url}}', font_path)
 
-                            font_families_string = font_families_string + font_tpl_result
+                            font_faces_string = font_faces_string + font_tpl_result
                         else:
                             inkex.utils.debug('Could not find matching font file ' + font_family)
 
                     if self.wrap_svg_in_html:
-                        tpl_result = str.replace(tpl_result, 'font-families', font_families_string)
+                        tpl_result = str.replace(tpl_result, '{{font-faces}}', font_faces_string)
                     # else:
                     #     Move and uncomment to add custom font support to spine level svg export
                     #     content_doc.getroot().addprevious(etree.ProcessingInstruction('xml-stylesheet', 'href="https://fonts.googleapis.com/css?family=' + alias + '"'))
@@ -306,9 +306,9 @@ class ExportToEpub(inkex.Effect):
                 else:
                     resource_content = self.read_file(resource_path, True)
                     if resource_content is not None:
-                        rel_path = str.split(folder, self.root_folder)[1]
-                        rel_path = rel_path.lstrip('/\\')
-                        item = epub.EpubItem(file_name=os.path.join(rel_path, resource), content=resource_content)
+                        rel_path = self.get_relative_resource_path(resource_path)
+
+                        item = epub.EpubItem(file_name=rel_path, content=resource_content)
                         self.book.add_item(item)
 
                         #resource_type = guess_type(resource_path)
@@ -341,15 +341,17 @@ class ExportToEpub(inkex.Effect):
     def scour_doc(self, str):
         return scour.scour.scourString(str).encode("UTF-8")
 
-    def find_file_name_fuzzy(self, name, dir):
+    def find_file_fuzzy(self, name, dir):
         folder = Path(dir)
         files = folder.rglob('*' + name + '*.*')
         for file in files:
-            inkex.utils.debug('found file ' + str(file))
-            return str(os.path.basename(file))
+            return str(file)
 
         return None
 
+    def get_relative_resource_path(self, resource_path):
+        rel_path = str.split(resource_path, self.root_folder)[1]
+        return str.replace(rel_path.lstrip('/\\'), '\\', '/')
 
     def read_file(self, filename, binary=False):
 
