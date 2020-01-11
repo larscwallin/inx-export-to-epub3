@@ -5,6 +5,9 @@ import sys
 import urllib.parse
 import urllib.request
 import os
+import glob
+from pathlib import Path
+
 from lxml import etree, html
 from builtins import str
 
@@ -20,11 +23,13 @@ import scour.scour
 from ebooklib import epub
 
 class ExportToEpub(inkex.Effect):
-    export_template = """<?xml version="1.0" standalone="no"?>
+    svg_src_template = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
 <svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="100%" height="100%" viewBox="0 0 {{element.width}} {{element.height}}" xml:space="preserve" preserveAspectRatio="xMinYMin">
-    <style/>
+    <style id="font-declarations">
+        {{font-families}}
+    </style>
     {{defs}}
     {{scripts}}
     <metadata xmlns="http://www.w3.org/2000/svg" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:cc="http://creativecommons.org/ns#" xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#" xmlns:svg="http://www.w3.org/2000/svg" xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd" xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape" id="metadata5">
@@ -36,6 +41,13 @@ class ExportToEpub(inkex.Effect):
     </metadata>
     {{element.source}}
 </svg>"""
+
+    font_face_template = """
+    @font-face {
+      font-family: {{font.family}};
+      src: url({{font.url}});
+    }
+    """
 
     def __init__(self):
         inkex.Effect.__init__(self)
@@ -90,6 +102,7 @@ class ExportToEpub(inkex.Effect):
             scripts_string = ''
             text_elements = self.document.xpath('//svg:text', namespaces=inkex.NSS)
             font_declarations = {}
+            font_families_string = ''
 
             resource_folder_path = os.path.join(self.root_folder, self.resources_folder)
             self.add_resources(resource_folder_path)
@@ -180,31 +193,41 @@ class ExportToEpub(inkex.Effect):
 
                 if element_source != '':
                     # Wrap the node in an SVG doc
-                    tpl_result = str.replace(self.export_template, '{{defs}}', defs_string)
+                    tpl_result = str.replace(self.svg_src_template, '{{defs}}', defs_string)
                     tpl_result = str.replace(tpl_result, '{{scripts}}', scripts_string)
                     tpl_result = str.replace(tpl_result, '{{title}}', element_label)
                     tpl_result = str.replace(tpl_result, '{{element.width}}', str(self.svg_width))
                     tpl_result = str.replace(tpl_result, '{{element.height}}', str(self.svg_height))
                     tpl_result = str.replace(tpl_result, '{{element.source}}', str(element_source, 'utf-8'))
 
+                    for font in font_declarations:
+                        font_tpl_result = ''
+
+                        font_family = str.replace(font, ' ', '+')
+                        font_family = str.replace(font_family, "'", '')
+                        resource_path = os.path.join(self.root_folder, self.resources_folder)
+                        font_file_name = self.find_file_name_fuzzy(font_family, resource_path)
+
+                        if font_file_name is not None:
+                            font_path = self.resources_folder + '/' + font_file_name
+                            font_tpl_result = str.replace(self.font_face_template, '{{font.family}}', font_family)
+                            font_tpl_result = str.replace(font_tpl_result, '{{font.url}}', font_path)
+
+                            font_families_string = font_families_string + font_tpl_result
+                        else:
+                            inkex.utils.debug('Could not find matching font file ' + font_family)
+
+                    if self.wrap_svg_in_html:
+                        tpl_result = str.replace(tpl_result, 'font-families', font_families_string)
+                    # else:
+                    #     Move and uncomment to add custom font support to spine level svg export
+                    #     content_doc.getroot().addprevious(etree.ProcessingInstruction('xml-stylesheet', 'href="https://fonts.googleapis.com/css?family=' + alias + '"'))
+
                     tpl_result = self.scour_doc(tpl_result)
 
                     # TODO: Add processing instsruction to head of file
                     content_doc = etree.fromstring(tpl_result)
                     content_doc = etree.ElementTree(content_doc)
-
-                    for font in font_declarations:
-                        alias = str.replace(font, ' ', '+')
-                        alias = str.replace(alias, "'", '')
-
-                        # if self.wrap_svg_in_html:
-                        #     pass
-                        # else:
-                        #     content_doc.getroot().addprevious(etree.ProcessingInstruction('xml-stylesheet', 'href="https://fonts.googleapis.com/css?family=' + alias + '"'))
-
-                        # if not alias in font_downloads:
-                            # fonts = self.downloadGoogleFont(alias,'')
-                            # font_downloads.append(alias)
 
                     # If the result of the operation is valid, add the SVG source to the selected array
                     if tpl_result:
@@ -215,9 +238,7 @@ class ExportToEpub(inkex.Effect):
                             'element': element
                         })
 
-            # inkex.utils.debug(fontdl.google_font_dl_downloads)
-            # for font_item in fontdl.google_font_dl_downloads:
-            #    pass
+
             # self.book.add_item(epub.EpubItem(file_name=font_item.filename, media_type='application/x-font-truetype'))
 
             for node in selected_layers:
@@ -285,7 +306,9 @@ class ExportToEpub(inkex.Effect):
                 else:
                     resource_content = self.read_file(resource_path, True)
                     if resource_content is not None:
-                        item = epub.EpubItem(file_name=os.path.join(self.resources_folder, resource), content=resource_content)
+                        rel_path = str.split(folder, self.root_folder)[1]
+                        rel_path = rel_path.lstrip('/\\')
+                        item = epub.EpubItem(file_name=os.path.join(rel_path, resource), content=resource_content)
                         self.book.add_item(item)
 
                         #resource_type = guess_type(resource_path)
@@ -317,6 +340,16 @@ class ExportToEpub(inkex.Effect):
 
     def scour_doc(self, str):
         return scour.scour.scourString(str).encode("UTF-8")
+
+    def find_file_name_fuzzy(self, name, dir):
+        folder = Path(dir)
+        files = folder.rglob('*' + name + '*.*')
+        for file in files:
+            inkex.utils.debug('found file ' + str(file))
+            return str(os.path.basename(file))
+
+        return None
+
 
     def read_file(self, filename, binary=False):
 
