@@ -223,6 +223,8 @@ class ExportToEpub(inkex.Effect):
                     #     Move and uncomment to add custom font support to spine level svg export
                     #     content_doc.getroot().addprevious(etree.ProcessingInstruction('xml-stylesheet', 'href="https://fonts.googleapis.com/css?family=' + alias + '"'))
 
+                    font_faces_string = ''
+
                     tpl_result = self.scour_doc(tpl_result)
 
                     # TODO: Add processing instsruction to head of file
@@ -311,16 +313,6 @@ class ExportToEpub(inkex.Effect):
                         item = epub.EpubItem(file_name=rel_path, content=resource_content)
                         self.book.add_item(item)
 
-                        #resource_type = guess_type(resource_path)
-                        #
-                        # self.resource_items.append(
-                        #     {
-                        #         'name': resource,
-                        #         'type': resource_type,
-                        #         'path': resource_path,
-                        #         'content': resource_content
-                        #     }
-                        # )
                     else:
                         inkex.utils.debug('"' + resource + '" is empty')
         else:
@@ -438,7 +430,6 @@ class ExportToEpub(inkex.Effect):
 
     def save_image_to_epub(self, image, book):
         """Embed the data of the selected Image Tag element"""
-        inkex.utils.debug('node %s' % image)
         xlink = image.get('xlink:href')
 
         if xlink is None or xlink == '':
@@ -466,12 +457,12 @@ class ExportToEpub(inkex.Effect):
 
         with open(path, "rb") as handle:
             file_type = self.get_image_type(path, handle.read(10))
-            file_name = os.path.basename(path)
+            file_name = self.get_relative_resource_path(path)
             handle.seek(0)
 
             if file_type:
                 item = epub.EpubItem(uid=image.get('id'), file_name=file_name, media_type=file_type,
-                                     content=handle.read())
+                                     content=handle.read(), create=False)
                 self.book.add_item(item)
                 image.set('sodipodi:absref', file_name)
                 image.set('xlink:href', file_name)
@@ -507,7 +498,9 @@ class ExportToEpub(inkex.Effect):
     def save_images_to_epub(self, element, book):
         images = element.xpath('//svg:image')
 
+        # make sure that the image hrefs are relative to the "project root"
         for image in images:
+
             self.save_image_to_epub(image, book)
 
     def process_fonts(self):
