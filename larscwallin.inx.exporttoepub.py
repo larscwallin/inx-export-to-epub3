@@ -5,15 +5,13 @@ import sys
 import urllib.parse
 import urllib.request
 import os
-import glob
 from pathlib import Path
 
-from lxml import etree, html
+from lxml import etree
 from builtins import str
 
 sys.path.append('./')
 sys.path.append('./inkex')
-sys.path.append('/usr/share/inkscape/extensions')
 sys.path.append('./ebooklib')
 sys.path.append('./scour')
 
@@ -26,7 +24,7 @@ class ExportToEpub(inkex.Effect):
     svg_src_template = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="100%" height="100%" viewBox="0 0 {{element.width}} {{element.height}}" xml:space="preserve" preserveAspectRatio="xMinYMin">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{{element.width}}" height="{{element.height}}" viewBox="0 0 {{element.width}} {{element.height}}" xml:space="preserve" preserveAspectRatio="xMinYMin">
     <style id="font-declarations">
         {{font-faces}}
     </style>
@@ -147,7 +145,6 @@ class ExportToEpub(inkex.Effect):
             metadata = self.document.xpath('//svg:svg/svg:metadata/rdf:RDF/cc:Work', namespaces=inkex.NSS)
             metadata_items = {
                 'title': '',
-                'format': '',
                 'date': '',
                 'creator': '',
                 'rights': '',
@@ -160,6 +157,8 @@ class ExportToEpub(inkex.Effect):
             if len(metadata[0]) > 0:
                 for element in metadata[0]:
                     self.remove_namespace(element, 'http://purl.org/dc/elements/1.1/')
+                    self.remove_namespace(element, 'http://www.w3.org/2000/svg')
+
                     metadata_items[element.tag] = element.text
             else:
                 pass
@@ -252,7 +251,7 @@ class ExportToEpub(inkex.Effect):
                 if content != '':
 
                     if self.wrap_svg_in_html:
-                        doc = epub.EpubHtml(uid=label, file_name=label + '.html', media_type="text/html",
+                        doc = epub.EpubHtml(uid=label, file_name=label + '.html', media_type='text/html',
                                           content=content, width=self.svg_width, height=self.svg_height)
 
                         content_documents.append(doc)
@@ -266,14 +265,19 @@ class ExportToEpub(inkex.Effect):
 
             if self.bottom_layer_as_cover:
                 cover = content_documents[0]
-                cover.content = re.subn(r'<(script).*?</\1>(?s)', '', cover.content.decode('utf-8'))[0]
+                cover.content = re.subn(r'(?s)<(script).*?</\1>', '', cover.content.decode('utf-8'))[0]
                 cover.properties.append('cover-image')
-                self.book.add_metadata(None, 'meta', '', epub.OrderedDict([('name', 'cover'), ('content', cover.id)]))
+                try:
+                    cover.properties.remove('scripted')
+                except:
+                    pass
 
+                self.book.add_metadata(None, 'meta', '', epub.OrderedDict([('name', 'cover'), ('content', cover.id)]))
+                self.book.set_cover('cover.xhtml', cover.content, create_page=False)
             else:
                 cover_content = '<html><head><title>' + str(self.publication_title) + '</title></head><body><h1>' + str(
                     self.publication_title) + '</h1></body></html>'
-                self.book.set_cover('cover.html', cover_content, create_page=False)
+                self.book.set_cover('cover.xhtml', cover_content, create_page=False)
 
             for doc in content_documents:
 
