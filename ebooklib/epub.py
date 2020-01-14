@@ -438,7 +438,7 @@ class EpubSvg(EpubItem):
     Represents SVG document in the EPUB file.
     """
 
-    def __init__(self, uid=None, file_name='', media_type='', content=None, title='', lang=None, direction=None):
+    def __init__(self, uid=None, file_name='', media_type='', content=None, title='', lang=None, direction=None, width=None, height=None):
         super(EpubSvg, self).__init__(uid, file_name, media_type, content)
 
         self.title = title
@@ -447,6 +447,9 @@ class EpubSvg(EpubItem):
 
         self.links = []
         self.properties = []
+
+        self.height = height
+        self.width = width
 
     def is_chapter(self):
         """

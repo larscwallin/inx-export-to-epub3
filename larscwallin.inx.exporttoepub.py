@@ -24,7 +24,8 @@ class ExportToEpub(inkex.Effect):
     svg_src_template = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
-<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{{element.width}}" height="{{element.height}}" viewBox="0 0 {{element.width}} {{element.height}}" xml:space="preserve" preserveAspectRatio="xMinYMin">
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" width="{{viewport.width}}" height="{{viewport.height}}" viewBox="0 0 {{document.width}} {{document.height}}" xml:space="preserve" preserveAspectRatio="xMinYMin">
+    <title>{{title}}</title>
     <style id="font-declarations">
         {{font-faces}}
     </style>
@@ -77,6 +78,7 @@ class ExportToEpub(inkex.Effect):
 
     def effect(self):
         self.publication_title = "Publication Title"
+        self.publication_desc = ""
         self.destination_path = self.options.where
         self.root_folder = self.options.root_folder
         self.filename = self.options.filename
@@ -85,8 +87,11 @@ class ExportToEpub(inkex.Effect):
         self.bottom_layer_as_cover = self.options.bottom_layer_as_cover
         self.wrap_svg_in_html = self.options.wrap_svg_in_html
         self.svg_doc = self.document.xpath('//svg:svg', namespaces=inkex.NSS)[0]
-        self.svg_width = int(round(self.svg.unittouu(self.svg_doc.get('width'))))
-        self.svg_height = int(round(self.svg.unittouu(self.svg_doc.get('height'))))
+        self.svg_doc_width = float(self.svg.unittouu(self.svg_doc.get('width')))
+        self.svg_doc_height = float(self.svg.unittouu(self.svg_doc.get('height')))
+        self.svg_viewport_width = float(self.svg_doc.get('width'))
+        self.svg_viewport_height = float(self.svg_doc.get('height'))
+
         self.visible_layers = self.document.xpath('//svg:svg/svg:g[not(contains(@style,"display:none"))]',
                                                   namespaces=inkex.NSS)
         self.book = epub.EpubBook()
@@ -125,8 +130,10 @@ class ExportToEpub(inkex.Effect):
                                                         media_type='text/javascript', content=script_source)
                             self.book.add_item(script_item)
 
+                            # Scripts should really use xlink:href but scour crashes if I use it :/
+                            # src seems to work, but it does not validate
                             scripts_string += str(
-                                '<script src="' + ('scripts/' + script_name) + '"></script>')
+                                    '<script src="' + ('scripts/' + script_name) + '"></script>')
                     else:
                         script_source = script.text
                         if script_source:
@@ -166,6 +173,9 @@ class ExportToEpub(inkex.Effect):
             if metadata_items['title'] != '':
                 self.publication_title = metadata_items['title']
 
+            if metadata_items['description'] != '':
+                self.publication_desc = metadata_items['description']
+
             # set metadata
             for term, val in metadata_items.items():
                 if val != '':
@@ -195,13 +205,13 @@ class ExportToEpub(inkex.Effect):
                     tpl_result = str.replace(self.svg_src_template, '{{defs}}', defs_string)
                     tpl_result = str.replace(tpl_result, '{{scripts}}', scripts_string)
                     tpl_result = str.replace(tpl_result, '{{title}}', element_label)
-                    tpl_result = str.replace(tpl_result, '{{element.width}}', str(self.svg_width))
-                    tpl_result = str.replace(tpl_result, '{{element.height}}', str(self.svg_height))
+                    tpl_result = str.replace(tpl_result, '{{viewport.width}}', str(self.svg_viewport_width))
+                    tpl_result = str.replace(tpl_result, '{{viewport.height}}', str(self.svg_viewport_height))
+                    tpl_result = str.replace(tpl_result, '{{document.width}}', str(self.svg_doc_width))
+                    tpl_result = str.replace(tpl_result, '{{document.height}}', str(self.svg_doc_height))
                     tpl_result = str.replace(tpl_result, '{{element.source}}', str(element_source, 'utf-8'))
 
                     for font in font_declarations:
-                        font_tpl_result = ''
-
                         font_family = str.replace(font, ' ', '+')
                         font_family = str.replace(font_family, "'", '')
                         resource_path = os.path.join(self.root_folder, self.resources_folder)
@@ -216,11 +226,7 @@ class ExportToEpub(inkex.Effect):
                         else:
                             inkex.utils.debug('Could not find matching font file ' + font_family)
 
-                    if self.wrap_svg_in_html:
-                        tpl_result = str.replace(tpl_result, '{{font-faces}}', font_faces_string)
-                    # else:
-                    #     Move and uncomment to add custom font support to spine level svg export
-                    #     content_doc.getroot().addprevious(etree.ProcessingInstruction('xml-stylesheet', 'href="https://fonts.googleapis.com/css?family=' + alias + '"'))
+                    tpl_result = str.replace(tpl_result, '{{font-faces}}', font_faces_string)
 
                     font_faces_string = ''
 
@@ -242,17 +248,17 @@ class ExportToEpub(inkex.Effect):
 
             # self.book.add_item(epub.EpubItem(file_name=font_item.filename, media_type='application/x-font-truetype'))
 
-            for node in selected_layers:
+            for layer in selected_layers:
                 # Cache these in local vars
-                content = node['source']
-                id = node['id']
-                label = node['label'] or node['id']
+                content = layer['source']
+                id = layer['id']
+                label = layer['label'] or layer['id']
 
                 if content != '':
 
                     if self.wrap_svg_in_html:
                         doc = epub.EpubHtml(uid=label, file_name=label + '.html', media_type='text/html',
-                                          content=content, width=self.svg_width, height=self.svg_height)
+                                            content=content, width=self.svg_viewport_width, height=self.svg_viewport_height)
 
                         content_documents.append(doc)
 
