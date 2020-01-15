@@ -12,13 +12,14 @@ from builtins import str
 
 sys.path.append('./')
 sys.path.append('./inkex')
-sys.path.append('./ebooklib')
 sys.path.append('./scour')
+sys.path.append('./ebooklib')
 
 import re
 import inkex
 import scour.scour
-from ebooklib import epub
+import ebooklib
+import larscwallin_inx_ebooklib_epub as inx_epub
 
 class ExportToEpub(inkex.Effect):
     svg_src_template = """<?xml version="1.0" standalone="no"?>
@@ -94,7 +95,7 @@ class ExportToEpub(inkex.Effect):
 
         self.visible_layers = self.document.xpath('//svg:svg/svg:g[not(contains(@style,"display:none"))]',
                                                   namespaces=inkex.NSS)
-        self.book = epub.EpubBook()
+        self.book = ebooklib.epub.EpubBook()
 
         if self.visible_layers.__len__() > 0:
             selected_layers = []
@@ -126,7 +127,7 @@ class ExportToEpub(inkex.Effect):
                         script_source = self.read_file(xlink)
                         if script_source is not None:
                             script_name = os.path.basename(xlink)
-                            script_item = epub.EpubItem(file_name=('scripts/' + script_name),
+                            script_item = inx_epub.InxEpubItem(file_name=('scripts/' + script_name),
                                                         media_type='text/javascript', content=script_source)
                             self.book.add_item(script_item)
 
@@ -245,26 +246,22 @@ class ExportToEpub(inkex.Effect):
                             'element': element
                         })
 
-
-            # self.book.add_item(epub.EpubItem(file_name=font_item.filename, media_type='application/x-font-truetype'))
-
             for layer in selected_layers:
                 # Cache these in local vars
                 content = layer['source']
-                id = layer['id']
                 label = layer['label'] or layer['id']
 
                 if content != '':
 
                     if self.wrap_svg_in_html:
-                        doc = epub.EpubHtml(uid=label, file_name=label + '.html', media_type='text/html',
+                        doc = inx_epub.InxEpubHtml(uid=label, file_name=label + '.html', media_type='text/html',
                                             content=content, width=self.svg_viewport_width, height=self.svg_viewport_height)
 
                         content_documents.append(doc)
 
                     else:
                         content_documents.append(
-                            epub.EpubSvg(uid=label, file_name=label + '.svg', media_type="image/svg+xml",
+                            inx_epub.InxEpubSvg(uid=label, file_name=label + '.svg', media_type="image/svg+xml",
                                          content=content))
                 else:
                     pass
@@ -278,7 +275,7 @@ class ExportToEpub(inkex.Effect):
                 except:
                     pass
 
-                self.book.add_metadata(None, 'meta', '', epub.OrderedDict([('name', 'cover'), ('content', cover.id)]))
+                self.book.add_metadata(None, 'meta', '', inkex.OrderedDict([('name', 'cover'), ('content', cover.id)]))
                 self.book.set_cover('cover.xhtml', cover.content, create_page=False)
             else:
                 cover_content = '<html><head><title>' + str(self.publication_title) + '</title></head><body><h1>' + str(
@@ -297,14 +294,17 @@ class ExportToEpub(inkex.Effect):
                 self.book.spine.append(doc)
 
             # TODO: Actually add the documents to the NAV
-            self.book.add_item(epub.EpubNav())
+            self.book.add_item(ebooklib.epub.EpubNav())
 
-            epub.write_epub((self.destination_path + '/' + self.filename), self.book, {})
+            inx_epub.write_epub((self.destination_path + '/' + self.filename), self.book, {})
 
             inkex.utils.debug('Saved EPUB file to ' + (self.destination_path + '/' + self.filename))
 
         else:
             inkex.utils.debug('No SVG elements or layers to export')
+
+        # End of effect() method
+
 
     def add_resources(self, folder=None):
         if folder is None:
@@ -320,7 +320,7 @@ class ExportToEpub(inkex.Effect):
                     if resource_content is not None:
                         rel_path = self.get_relative_resource_path(resource_path)
 
-                        item = epub.EpubItem(file_name=rel_path, content=resource_content)
+                        item = inx_epub.InxEpubItem(file_name=rel_path, content=resource_content)
                         self.book.add_item(item)
 
                     else:
@@ -328,7 +328,7 @@ class ExportToEpub(inkex.Effect):
         else:
             inkex.utils.debug('"' + folder + '" is not a folder')
 
-    def gettag_name(self, node, ns='sodipodi'):
+    def get_tag_name(self, node, ns='sodipodi'):
         type = node.get(inkex.utils.addNS('type', ns))
 
         if type is None:
@@ -343,8 +343,8 @@ class ExportToEpub(inkex.Effect):
     def scour_doc(self, str):
         return scour.scour.scourString(str).encode("UTF-8")
 
-    def find_file_fuzzy(self, name, dir):
-        folder = Path(dir)
+    def find_file_fuzzy(self, name, folder):
+        folder = Path(folder)
         files = folder.rglob('*' + name + '*.*')
         for file in files:
             return str(file)
@@ -471,7 +471,7 @@ class ExportToEpub(inkex.Effect):
             handle.seek(0)
 
             if file_type:
-                item = epub.EpubItem(uid=image.get('id'), file_name=file_name, media_type=file_type,
+                item = inx_epub.InxEpubItem(uid=image.get('id'), file_name=file_name, media_type=file_type,
                                      content=handle.read(), create=False)
                 self.book.add_item(item)
                 image.set('sodipodi:absref', file_name)
