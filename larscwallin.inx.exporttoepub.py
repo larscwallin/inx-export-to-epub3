@@ -82,10 +82,14 @@ class ExportToEpub(inkex.Effect):
     def effect(self):
         self.publication_title = "Publication Title"
         self.publication_desc = ""
+        # The output path for the created EPUB
         self.destination_path = self.options.where
+        # The project root folder
         self.root_folder = self.options.root_folder
-        self.filename = self.options.filename
+        # the resource folder is the location, relative to the project root folder, where the all the images, fonts etc
+        # are stored. If you want a file to be automatically added to the EPUB it needs to be put in this folder.
         self.resources_folder = self.options.resources_folder
+        self.filename = self.options.filename
         self.resource_items = []
         self.bottom_layer_as_cover = self.options.bottom_layer_as_cover
         self.wrap_svg_in_html = self.options.wrap_svg_in_html
@@ -96,39 +100,62 @@ class ExportToEpub(inkex.Effect):
         self.svg_viewport_height = float(self.svg_doc.get('height'))
         self.svg_nav_doc = ebooklib.epub.EpubNav()
 
+        # We only care about the "root layers" that are visible. Sub-layers will be included.
         self.visible_layers = self.document.xpath('/svg:svg/svg:g[not(contains(@style,"display:none"))]',
                                                   namespaces=inkex.NSS)
+        # Create a new EPUB instance
         self.book = ebooklib.epub.EpubBook()
 
         if self.visible_layers.__len__() > 0:
             selected_layers = []
             content_documents = []
+
+            # Get all defs elements. These are "injected" in each of the documents
             defs = self.document.xpath('//svg:svg/svg:defs', namespaces=inkex.NSS)
             defs_string = ''
+
+            # Get all script elements in the document root. These are "injected" in each of the documents.
+            # Script elements that are children of layers are unique to each document.
             scripts = self.document.xpath('//svg:svg/svg:script', namespaces=inkex.NSS)
             scripts_string = ''
+
+            # We get all text elements in order to later get all used font-families.
             text_elements = self.document.xpath('//svg:text', namespaces=inkex.NSS)
-            font_declarations = {}
+            font_families = {}
             font_faces_string = ''
 
             resource_folder_path = os.path.join(self.root_folder, self.resources_folder)
+            # Call add_resources to recursively add resources to the EPUB instance.
             self.add_resources(resource_folder_path)
 
+            # Now let's go through the text elements and see which font families that are used.
             for text in text_elements:
                 style = inkex.Style(text.get('style'))
 
                 if style['font-family']:
                     font = style['font-family']
-                    if font not in font_declarations:
-                        font_declarations[font] = font
+                    if font not in font_families:
+                        font_families[font] = font
 
+            # Time to loop through the script elements if there are any
             if len(scripts) > 0:
+
                 for script in scripts:
                     xlink = script.get('xlink:href')
 
+                    # If there is an xlink attribute it's an external script. External scripts are handled a
+                    # bit differently than other resources. Instead of assuming that they are located in the
+                    # specified resource folder they will be retrieved and put in the "scripts" folder in the
+                    # root of the EPUB. I made this choice to make it easier to point to js on the web.
+                    # Might change this later.
+
                     if xlink:
+
+                        # Now we'll try to read the contents of the script file.
                         script_source = self.read_file(xlink)
+
                         if script_source is not None:
+
                             script_name = os.path.basename(xlink)
                             script_item = inx_epub.InxEpubItem(file_name=('scripts/' + script_name),
                                                         media_type='text/javascript', content=script_source)
@@ -139,14 +166,18 @@ class ExportToEpub(inkex.Effect):
                             scripts_string += str(
                                     '<script src="' + ('scripts/' + script_name) + '"></script>')
                     else:
+                        # If there is no xlink we can assume that this is an embedded script and grab its text content.
                         script_source = script.text
                         if script_source:
                             scripts_string += str(
                                 '<script id="' + script.get('id') + '">' + script_source + '</script>')
 
             else:
+                # No scripts so we just add a self closing element
                 scripts_string = '<script />'
 
+            # If we found defs we loop through them and add them to string which will be inserted in every document.
+            # Note that we use Scour later for each doc to remove unused defs.
             if len(defs) > 0:
                 for element in defs:
                     defs_string += str(etree.tostring(element, method='html', pretty_print=False), 'utf-8')
@@ -215,7 +246,7 @@ class ExportToEpub(inkex.Effect):
                     tpl_result = str.replace(tpl_result, '{{document.height}}', str(self.svg_doc_height))
                     tpl_result = str.replace(tpl_result, '{{element.source}}', str(element_source, 'utf-8'))
 
-                    for font in font_declarations:
+                    for font in font_families:
                         font_family = str.replace(font, ' ', '+')
                         font_family = str.replace(font_family, "'", '')
                         resource_path = os.path.join(self.root_folder, self.resources_folder)
