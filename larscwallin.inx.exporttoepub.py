@@ -92,8 +92,9 @@ class ExportToEpub(inkex.Effect):
         self.svg_doc_height = float(self.svg.unittouu(self.svg_doc.get('height')))
         self.svg_viewport_width = float(self.svg_doc.get('width'))
         self.svg_viewport_height = float(self.svg_doc.get('height'))
+        self.svg_nav_doc = ebooklib.epub.EpubNav()
 
-        self.visible_layers = self.document.xpath('//svg:svg/svg:g[not(contains(@style,"display:none"))]',
+        self.visible_layers = self.document.xpath('/svg:svg/svg:g[not(contains(@style,"display:none"))]',
                                                   namespaces=inkex.NSS)
         self.book = ebooklib.epub.EpubBook()
 
@@ -259,6 +260,8 @@ class ExportToEpub(inkex.Effect):
 
                         content_documents.append(doc)
 
+                        self.book.toc.append(ebooklib.epub.Link(label + '.html', label, layer['id']))
+
                     else:
                         content_documents.append(
                             inx_epub.InxEpubSvg(uid=label, file_name=label + '.svg', media_type="image/svg+xml",
@@ -294,7 +297,7 @@ class ExportToEpub(inkex.Effect):
                 self.book.spine.append(doc)
 
             # TODO: Actually add the documents to the NAV
-            self.book.add_item(ebooklib.epub.EpubNav())
+            self.book.add_item(self.svg_nav_doc)
 
             inx_epub.write_epub((self.destination_path + '/' + self.filename), self.book, {})
 
