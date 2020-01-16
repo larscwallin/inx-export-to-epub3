@@ -21,7 +21,9 @@ import scour.scour
 import ebooklib
 import larscwallin_inx_ebooklib_epub as inx_epub
 
+
 class ExportToEpub(inkex.Effect):
+
     svg_src_template = """<?xml version="1.0" standalone="no"?>
 <!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.1//EN"
 "http://www.w3.org/Graphics/SVG/1.1/DTD/svg11.dtd">
@@ -296,7 +298,6 @@ class ExportToEpub(inkex.Effect):
                 # add spine item
                 self.book.spine.append(doc)
 
-            # TODO: Actually add the documents to the NAV
             self.book.add_item(self.svg_nav_doc)
 
             inx_epub.write_epub((self.destination_path + '/' + self.filename), self.book, {})
@@ -307,7 +308,6 @@ class ExportToEpub(inkex.Effect):
             inkex.utils.debug('No SVG elements or layers to export')
 
         # End of effect() method
-
 
     def add_resources(self, folder=None):
         if folder is None:
@@ -516,53 +516,40 @@ class ExportToEpub(inkex.Effect):
 
             self.save_image_to_epub(image, book)
 
-    def process_fonts(self):
-        # Find and iterate over all font-family references
-        # For each font-family, create processing instruction:
-        #
-        # <?xml-stylesheet type="text/css" href="https://fonts.googleapis.com/css?family=Rammetto+One"?>
-        #
-        # self.document.getroot().addprevious(etree.ProcessingInstruction('xml-stylesheet', 'type="text/css" href="https://fonts.googleapis.com/css?family=Rammetto+One"'))
-        pass
+    # TODO: Separate out some of the code into functions to increase readability
 
-    def create_epub(self, title):
-        pass
-
-    def add_epub_manifest_item(self, item):
-        pass
-
-    def add_epub_metadata_item(self, item):
-        pass
-
-    def add_epub_spine_item(self, id, item):
-        pass
-
-    def add_epub_nav_item(self, item):
-        pass
-
-    def add_cover_content_document(self, doc):
-        pass
-
-    def add_content_document(self, doc):
-        pass
-
-    def fragment_to_svg_doc(self, fragment):
-        pass
-
-    def get_document_layers(self):
-        pass
-
-    def render_css(self, source):
-        pass
-
-    # def downloadGoogleFont(self, font_desc, path):
-
-    # formats =  {"truetype": "ttf"} # sorted(fontdl.fontfmt_user_agent.keys())
-    # inkex.utils.debug(font_desc)
-    # font_args = fontdl.parse_font_arg(font_desc)
-    # fetched = fontdl.fetch_fonts(frozenset(formats), None, [font_args])
-    # fontdl.connection_pool.close_all()
-    # return fetched
+    # def process_fonts(self):
+    #     pass
+    #
+    # def create_epub(self, title):
+    #     pass
+    #
+    # def add_epub_manifest_item(self, item):
+    #     pass
+    #
+    # def add_epub_metadata_item(self, item):
+    #     pass
+    #
+    # def add_epub_spine_item(self, id, item):
+    #     pass
+    #
+    # def add_epub_nav_item(self, item):
+    #     pass
+    #
+    # def add_cover_content_document(self, doc):
+    #     pass
+    #
+    # def add_content_document(self, doc):
+    #     pass
+    #
+    # def fragment_to_svg_doc(self, fragment):
+    #     pass
+    #
+    # def get_document_layers(self):
+    #     pass
+    #
+    # def render_css(self, source):
+    #     pass
 
 
 # Create effect instance and apply it.
