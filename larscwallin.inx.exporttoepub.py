@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import base64
+import copy
 import sys
 import urllib.parse
 import urllib.request
@@ -21,6 +22,29 @@ import scour.scour
 import ebooklib
 import larscwallin_inx_ebooklib_epub as inx_epub
 
+"""
+    MIT License
+    
+    Copyright (c) 2020 Lars C Wallin <larscwallin@gmail.com>
+ 
+    Permission is hereby granted, free of charge, to any person obtaining a copy
+    of this software and associated documentation files (the "Software"), to deal
+    in the Software without restriction, including without limitation the rights
+    to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+    copies of the Software, and to permit persons to whom the Software is
+    furnished to do so, subject to the following conditions:
+    
+    The above copyright notice and this permission notice shall be included in all
+    copies or substantial portions of the Software.
+    
+    THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+    IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+    FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+    AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+    LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+    OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+    SOFTWARE.
+"""
 
 class ExportToEpub(inkex.Effect):
 
@@ -185,6 +209,7 @@ class ExportToEpub(inkex.Effect):
                 defs_string = '<defs/>'
 
             metadata = self.document.xpath('//svg:svg/svg:metadata/rdf:RDF/cc:Work', namespaces=inkex.NSS)
+
             metadata_items = {
                 'title': '',
                 'date': '',
@@ -198,10 +223,12 @@ class ExportToEpub(inkex.Effect):
 
             if len(metadata[0]) > 0:
                 for element in metadata[0]:
-                    self.remove_namespace(element, 'http://purl.org/dc/elements/1.1/')
-                    self.remove_namespace(element, 'http://www.w3.org/2000/svg')
-
-                    metadata_items[element.tag] = element.text
+                    # Copy the node to make sure that the input document is not mutated when we remove namespaces
+                    element_copy = copy.deepcopy(element)
+                    self.remove_namespace(element_copy, 'http://purl.org/dc/elements/1.1/')
+                    self.remove_namespace(element_copy, 'http://www.w3.org/2000/svg')
+                    metadata_items[element_copy.tag] = element_copy.text
+                    element_copy = None
             else:
                 pass
 
@@ -211,7 +238,7 @@ class ExportToEpub(inkex.Effect):
             if metadata_items['description'] != '':
                 self.publication_desc = metadata_items['description']
 
-            # set metadata
+            # Add collected metadata to the book
             for term, val in metadata_items.items():
                 if val != '':
                     self.book.add_metadata('DC', term, val)
@@ -219,9 +246,10 @@ class ExportToEpub(inkex.Effect):
             self.book.add_metadata(None, 'meta', 'pre-paginated', {'property': 'rendition:layout'})
             self.book.add_metadata(None, 'meta', 'auto', {'property': 'rendition:orientation'})
 
+            # All visible layers will be saved as FXL docs in the EPUB. Let's loop through them!
             for element in self.visible_layers:
 
-                # Save all images to epub package
+                # Save all images to the epub package
                 self.save_images_to_epub(element, self.book)
 
                 element_label = str(element.get(inkex.utils.addNS('label', 'inkscape'), ''))
@@ -473,16 +501,17 @@ class ExportToEpub(inkex.Effect):
                                "image/bmp, image/gif, image/tiff, or image/x-icon" % path)
 
     def save_image_to_epub(self, image, book):
-        """Embed the data of the selected Image Tag element"""
+
         xlink = image.get('xlink:href')
 
         if xlink is None or xlink == '':
-            # No valid xlink
+            # No xlink found
             inkex.utils.debug('No valid xlink. Found: %s' % xlink)
             return
 
-        if xlink and xlink is not None and xlink[:5] == 'data:':
-            # No need, data alread embedded
+        # Let's check if the xlink contains a data uri
+        if xlink[:5] == 'data:':
+            # No need, data already embedded
             return
 
         url = urllib.parse.urlparse(xlink)
@@ -516,7 +545,7 @@ class ExportToEpub(inkex.Effect):
                                "image/bmp, image/gif, image/tiff, or image/x-icon" % path)
 
     def get_image_type(self, path, header):
-        """Basic magic header checker, returns mime type"""
+        # Basic magic header checker, returns mime type
         for head, mime in (
                 (b'\x89PNG', 'image/png'),
                 (b'\xff\xd8', 'image/jpeg'),
@@ -544,7 +573,6 @@ class ExportToEpub(inkex.Effect):
 
         # make sure that the image hrefs are relative to the "project root"
         for image in images:
-
             self.save_image_to_epub(image, book)
 
     # TODO: Separate out some of the code into functions to increase readability
