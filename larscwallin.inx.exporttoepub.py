@@ -226,9 +226,12 @@ class ExportToEpub(inkex.Effect):
                 for element in metadata[0]:
                     # Copy the node to make sure that the input document is not mutated when we remove namespaces
                     element_copy = copy.deepcopy(element)
+                    # Me being lazy. Flatten any metadata item to only include text
+                    element_copy_text = element_copy.xpath(".//text()")
+                    element_copy_text = ''.join(element_copy_text).strip() if len(element_copy_text) > 0 else ''
                     self.remove_namespace(element_copy, 'http://purl.org/dc/elements/1.1/')
                     self.remove_namespace(element_copy, 'http://www.w3.org/2000/svg')
-                    metadata_items[element_copy.tag] = element_copy.text
+                    metadata_items[element_copy.tag] = element_copy_text
                     element_copy = None
             else:
                 pass
@@ -254,7 +257,7 @@ class ExportToEpub(inkex.Effect):
                 self.save_images_to_epub(element, self.book)
 
                 element_label = str(element.get(inkex.utils.addNS('label', 'inkscape'), ''))
-                element_id = element.get('id')
+                element_id = element.get('id').replace(' ', '_')
 
                 if element_label != '':
                     element.set('label', element_label)
@@ -313,6 +316,7 @@ class ExportToEpub(inkex.Effect):
                 # Cache these in local vars
                 content = layer['source']
                 label = layer['label'] or layer['id']
+                label = label.replace(' ', '_')
 
                 if content != '':
 
