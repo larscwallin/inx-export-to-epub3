@@ -31,6 +31,11 @@ import ebooklib
 
 from ebooklib.utils import parse_string, parse_html_string
 
+class InxEpubBook(ebooklib.epub.EpubBook):
+
+    def __init__(self):
+        super(InxEpubBook, self).__init__()
+
 
 class InxEpubItem(ebooklib.epub.EpubItem):
     """

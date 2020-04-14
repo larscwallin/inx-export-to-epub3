@@ -97,7 +97,7 @@ class ExportToEpub(inkex.Effect):
                                           'resources to be added to the EPUB. Could be audio, video etc.')
 
         self.arg_parser.add_argument('--bottom_layer_as_cover', action='store',
-                                     type=inkex.Boolean, dest='bottom_layer_as_cover', default=True,
+                                     type=inkex.Boolean, dest='bottom_layer_as_cover', default=False,
                                      help='Use bottom layer as cover image?')
 
         self.arg_parser.add_argument('--wrap_svg_in_html', action='store',
@@ -335,6 +335,8 @@ class ExportToEpub(inkex.Effect):
                 else:
                     pass
 
+            # Skip cover image for now. To be implemented later.
+            """
             if self.bottom_layer_as_cover:
                 cover = content_documents[0]
                 cover.content = re.subn(r'(?s)<(script).*?</\1>', '', cover.content.decode('utf-8'))[0]
@@ -350,6 +352,7 @@ class ExportToEpub(inkex.Effect):
                 cover_content = '<html><head><title>' + str(self.publication_title) + '</title></head><body><h1>' + str(
                     self.publication_title) + '</h1></body></html>'
                 self.book.set_cover('cover.xhtml', cover_content, create_page=False)
+            """
 
             for doc in content_documents:
 

@@ -7,7 +7,10 @@
   <param name="resources_folder" type="string" _gui-text="Additional resources folder path, relative to the root folder"></param>
   <param name="where" type="string" _gui-text="Output path">~/</param>
   <param name="filename" type="string" _gui-text="File name">my-publication.svg</param>
-  <param name="bottom_layer_as_cover" type="boolean" _gui-text="Use bottom layer as cover image">True</param>
+  <!--
+   We skip the cover image option in this release
+  <param name="bottom_layer_as_cover" type="boolean" _gui-text="Use bottom layer as cover image">False</param>
+  -->
   <param name="wrap_svg_in_html" type="boolean" _gui-text="Save documents as HTML instead of SVG?">False</param>
   <effect>
     <object-type>all</object-type>
