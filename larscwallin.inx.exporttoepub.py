@@ -121,8 +121,8 @@ class ExportToEpub(inkex.Effect):
         self.svg_doc = self.document.xpath('//svg:svg', namespaces=inkex.NSS)[0]
         self.svg_doc_width = float(self.svg.unittouu(self.svg_doc.get('width')))
         self.svg_doc_height = float(self.svg.unittouu(self.svg_doc.get('height')))
-        self.svg_viewport_width = float(self.svg_doc.get('width'))
-        self.svg_viewport_height = float(self.svg_doc.get('height'))
+        self.svg_viewport_width = float(self.svg.unittouu(self.svg_doc.get('width')))
+        self.svg_viewport_height = float(self.svg.unittouu(self.svg_doc.get('height')))
         self.svg_nav_doc = ebooklib.epub.EpubNav()
 
         # We only care about the "root layers" that are visible. Sub-layers will be included.
