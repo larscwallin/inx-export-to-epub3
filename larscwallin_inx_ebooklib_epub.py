@@ -18,7 +18,7 @@ import sys
 sys.path.append('./ebooklib')
 
 import six
-from ebooklib.epub import EpubItem
+from ebooklib.epub import EpubItem, EpubHtml
 
 try:
     from urllib.parse import unquote
@@ -213,6 +213,53 @@ class InxEpubWriter(ebooklib.epub.EpubWriter):
         self.options = dict(self.DEFAULT_OPTIONS)
         if options:
             self.options.update(options)
+
+    # Re-implemented this to remove ncx ref attribute from for spine
+    def _write_opf_spine(self, root, ncx_id):
+        # This is now an empty collection
+        spine_attributes = {}
+        if self.book.direction and self.options['spine_direction']:
+            spine_attributes['page-progression-direction'] = self.book.direction
+
+        spine = etree.SubElement(root, 'spine', spine_attributes)
+
+        for _item in self.book.spine:
+            # this is for now
+            # later we should be able to fetch things from tuple
+
+            is_linear = True
+
+            if isinstance(_item, tuple):
+                item = _item[0]
+
+                if len(_item) > 1:
+                    if _item[1] == 'no':
+                        is_linear = False
+            else:
+                item = _item
+
+            if isinstance(item, EpubHtml):
+                opts = {'idref': item.get_id()}
+
+                if not item.is_linear or not is_linear:
+                    opts['linear'] = 'no'
+            elif isinstance(item, EpubItem):
+                opts = {'idref': item.get_id()}
+
+                if not item.is_linear or not is_linear:
+                    opts['linear'] = 'no'
+            else:
+                opts = {'idref': item}
+
+                try:
+                    itm = self.book.get_item_with_id(item)
+
+                    if not itm.is_linear or not is_linear:
+                        opts['linear'] = 'no'
+                except:
+                    pass
+
+            etree.SubElement(spine, 'itemref', opts)
 
     def _write_items(self):
         for item in self.book.get_items():

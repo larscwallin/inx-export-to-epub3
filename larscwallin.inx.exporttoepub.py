@@ -238,6 +238,7 @@ class ExportToEpub(inkex.Effect):
 
             if metadata_items['title'] != '':
                 self.publication_title = metadata_items['title']
+                self.book.set_title(self.publication_title)
 
             if metadata_items['description'] != '':
                 self.publication_desc = metadata_items['description']
@@ -279,7 +280,7 @@ class ExportToEpub(inkex.Effect):
                     tpl_result = str.replace(tpl_result, '{{element.source}}', str(element_source, 'utf-8'))
 
                     for font in font_families:
-                        font_family = str.replace(font, ' ', '+')
+                        font_family = font #str.replace(font, ' ', '+')
                         font_family = str.replace(font_family, "'", '')
                         resource_path = os.path.join(self.root_folder, self.resources_folder)
                         font_file_name = self.find_file_fuzzy(font_family, resource_path)
@@ -365,6 +366,7 @@ class ExportToEpub(inkex.Effect):
                 # add spine item
                 self.book.spine.append(doc)
 
+            self.svg_nav_doc
             self.book.add_item(self.svg_nav_doc)
 
             inx_epub.write_epub((self.destination_path + '/' + self.filename), self.book, {})
