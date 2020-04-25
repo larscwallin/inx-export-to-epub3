@@ -280,8 +280,11 @@ class ExportToEpub(inkex.Effect):
                     tpl_result = str.replace(tpl_result, '{{element.source}}', str(element_source, 'utf-8'))
 
                     for font in font_families:
-                        font_family = font #str.replace(font, ' ', '+')
+                        font_family = str.replace(font, ' ', '+')
                         font_family = str.replace(font_family, "'", '')
+
+                        tpl_result = str.replace(tpl_result, font, font_family)
+
                         resource_path = os.path.join(self.root_folder, self.resources_folder)
                         font_file_name = self.find_file_fuzzy(font_family, resource_path)
 
@@ -292,7 +295,7 @@ class ExportToEpub(inkex.Effect):
 
                             font_faces_string = font_faces_string + font_tpl_result
                         else:
-                            inkex.utils.debug('Could not find matching font file ' + font_family)
+                            inkex.utils.debug('Could not find matching font file ' + font_family + ' in location ' + resource_path)
 
                     tpl_result = str.replace(tpl_result, '{{font-faces}}', font_faces_string)
 
@@ -510,7 +513,14 @@ class ExportToEpub(inkex.Effect):
                 inkex.errormsg("%s is not of type image/png, image/jpeg, "
                                "image/bmp, image/gif, image/tiff, or image/x-icon" % path)
 
+
+    # REFACTOR
+    # This method does not really save the image to the epub anymore, it just sets the correct
+    # href value to point to the resource folder.
+    # This will probably be changed back to its original purpose when I have time to refactor
+    # the code a bit.
     def save_image_to_epub(self, image, book):
+        resource_folder_path = os.path.join(self.root_folder, self.resources_folder)
 
         xlink = image.get('xlink:href')
 
@@ -540,13 +550,25 @@ class ExportToEpub(inkex.Effect):
 
         with open(path, "rb") as handle:
             file_type = self.get_image_type(path, handle.read(10))
-            file_name = self.get_relative_resource_path(path)
+
+            # Is the image in the resources folder?
+            if(path.find(resource_folder_path) >= 0):
+                file_name = self.get_relative_resource_path(path)
+            else:
+                inkex.utils.debug("save_image_to_epub: image '"+ path +"' is not in resource folder, skipping it.")
+                handle.close()
+                handle = None
+                return
+
             handle.seek(0)
 
             if file_type:
-                item = inx_epub.InxEpubItem(uid=image.get('id'), file_name=file_name, media_type=file_type,
-                                     content=handle.read(), create=False)
-                self.book.add_item(item)
+                # We do not need to do this anymore since I have decided that all resources, including images
+                # must be put in the resources folder and all those have already been added to the EPUB package.
+                # item = inx_epub.InxEpubItem(uid=image.get('id'), file_name=file_name, media_type=file_type, content=handle.read(), create=False)
+                # self.book.add_item(item)
+
+                # Rewrite the urls
                 image.set('sodipodi:absref', file_name)
                 image.set('xlink:href', file_name)
 
